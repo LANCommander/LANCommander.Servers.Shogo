@@ -1,0 +1,31 @@
+#!/bin/sh
+# Start the Shogo dedicated server (START_EXE).
+#
+# Runs `ShogoSrv.exe -config <SHOGO_CONFIG> -go` under Wine with Xvfb. ShogoSrv is a GUI app: -go
+# skips its setup wizard and reuses the settings in the config file, which the configure hook
+# fills in. Its console is a list box in that window, so nothing reaches docker logs; check the
+# server with a GameSpy `\status\` query to the game port + 149. Any START_ARGS are appended.
+set -e
+
+root="${SERVER_ROOT:-/config/Merged}"
+cfg="${SHOGO_CONFIG:-ShogoSrv.cfg}"
+
+cd "$root"
+
+if [ ! -f ShogoSrv.exe ]; then
+    echo "ShogoSrv.exe not found in $root. Put a Shogo install in /config/Server." >&2
+    exit 1
+fi
+
+if [ ! -f "$cfg" ]; then
+    echo "$cfg not found in $root; without it ShogoSrv opens its setup wizard and never starts." >&2
+    exit 1
+fi
+
+set -- -config "$cfg" -go "$@"
+
+printf 'Starting: ShogoSrv.exe %s\n' "$*"
+printf 'Game port %s/udp, status queries on %s/udp\n' "${SHOGO_PORT:-27888}" "$(( ${SHOGO_PORT:-27888} + 149 ))"
+
+export WINE_XVFB="${WINE_XVFB:-true}"
+exec wine-run ShogoSrv.exe "$@"
